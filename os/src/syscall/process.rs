@@ -39,7 +39,35 @@ pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
 }
 
 // TODO: implement the syscall
-pub fn sys_trace(_trace_request: usize, _id: usize, _data: usize) -> isize {
+use crate::task::get_sys_call_times;
+use crate::config::MAX_SYSCALL_NUM;
+
+pub fn sys_trace(trace_request: usize, id: usize, data: usize) -> isize {
     trace!("kernel: sys_trace");
-    -1
+    match trace_request {
+        0 => {
+            // 读取用户空间一个字节
+            let ptr = id as *const u8;
+            let value = unsafe { ptr.read_volatile() };
+            value as isize
+        }
+        1 => {
+            // 写入用户空间一个字节
+            let ptr = id as *mut u8;
+            let value = (data & 0xFF) as u8;
+            unsafe { ptr.write_volatile(value); }
+            0
+        }
+        2 => {
+            // 查询当前任务某系统调用次数
+            if id < MAX_SYSCALL_NUM {
+                //increase_sys_call(id); // 本次调用也计入统计
+                let times = get_sys_call_times();
+                times[id] as isize
+            } else {
+                -1
+            }
+        }
+        _ => -1,
+    }
 }

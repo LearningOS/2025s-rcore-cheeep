@@ -15,6 +15,7 @@ mod switch;
 mod task;
 
 use crate::config::MAX_APP_NUM;
+use crate::config::MAX_SYSCALL_NUM;
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
 use lazy_static::*;
@@ -54,6 +55,7 @@ lazy_static! {
         let mut tasks = [TaskControlBlock {
             task_cx: TaskContext::zero_init(),
             task_status: TaskStatus::UnInit,
+            sys_call_times: [0; MAX_SYSCALL_NUM],
         }; MAX_APP_NUM];
         for (i, task) in tasks.iter_mut().enumerate() {
             task.task_cx = TaskContext::goto_restore(init_app_cx(i));
@@ -135,8 +137,17 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
-}
+    //新增
+    fn get_sys_call_times(&self) -> [u32; MAX_SYSCALL_NUM] {
+     let inner: core::cell::RefMut<'_, TaskManagerInner> = self.inner.exclusive_access();
+     inner.tasks[inner.current_task].sys_call_times.clone()
+ }
 
+}
+/// xizneng
+pub fn get_sys_call_times() -> [u32; MAX_SYSCALL_NUM] {
+    TASK_MANAGER.get_sys_call_times()
+}
 /// Run the first task in task list.
 pub fn run_first_task() {
     TASK_MANAGER.run_first_task();
@@ -168,4 +179,14 @@ pub fn suspend_current_and_run_next() {
 pub fn exit_current_and_run_next() {
     mark_current_exited();
     run_next_task();
+}
+
+/// 增加当前任务的某个系统调用计数
+pub fn increase_sys_call(syscall_id: usize) {
+    use crate::config::MAX_SYSCALL_NUM;
+    if syscall_id < MAX_SYSCALL_NUM {
+        let mut inner = TASK_MANAGER.inner.exclusive_access();
+        let current = inner.current_task; // 先存到局部变量
+        inner.tasks[current].sys_call_times[syscall_id] += 1;
+    }
 }
