@@ -136,9 +136,9 @@ pub fn sys_trace(trace_request: usize, id: usize, data: usize) -> isize {
             0
         }
         2 => {
-            // 查询当前任务某系统调用次数
+            /// 查询当前任务某系统调用次数
             if id < MAX_SYSCALL_NUM {
-                //increase_sys_call(id); // 本次调用也计入统计
+                //increase_sys_call(id); 
                 let times = get_sys_call_times();
                 times[id] as isize
             } else {
@@ -149,6 +149,40 @@ pub fn sys_trace(trace_request: usize, id: usize, data: usize) -> isize {
     }
 }
 ```
+
+上述修改后本地编译可以通过，而CI因为依赖版本问题无法通过。无奈换一种方式重新实现。
+
+```
+use crate::config::MAX_SYSCALL_NUM;
+
+syscall_count: UPSafeCell<[[usize; MAX_SYSCALL_NUM]; MAX_APP_NUM]>,
+
+/// inc_syscall_count()
+pub fn add_syscall_count(syscall_id: usize) {
+    TASK_MANAGER.increase_sys_call(syscall_id);
+}
+
+/// get_syscall_count()
+pub fn get_syscall_count(syscall_id: usize) -> usize {
+    TASK_MANAGER.get_sys_call_times(syscall_id)
+}
+
+// TODO: implement the syscall
+pub fn sys_trace(trace_request: usize, id: usize, data: usize) -> isize {
+    trace!("kernel: sys_trace");
+    match trace_request {
+        0 => unsafe { (id as *const u8).read() as isize },
+        1 => {
+            unsafe { (id as *mut u8).write(data as u8); }
+            0
+        }
+        2 => TASK_MANAGER.get_sys_call_times(id) as isize,
+        _ => -1,
+    }
+}
+```
+
+
 
 ### 简答作业
 
@@ -257,3 +291,20 @@ sscratch：变为 trap 时 U 态的 sp，方便异常返回时恢复。
 （用户程序执行 ecall，触发 trap，进入 S 态）。
 ```
 
+
+
+## **荣誉准则**
+
+
+
+1. 在完成本次实验的过程（含此前学习的过程）中，我曾分别与 **以下各位** 就（与本次实验相关的）以下方面做过交流，还在代码中对应的位置以注释形式记录了具体的交流对象及内容：
+
+   > copilot
+
+2. 此外，我也参考了 **以下资料** ，还在代码中对应的位置以注释形式记录了具体的参考来源及内容：
+
+   > copilot
+
+3. 我独立完成了本次实验除以上方面之外的所有工作，包括代码与文档。 我清楚地知道，从以上方面获得的信息在一定程度上降低了实验难度，可能会影响起评分。
+
+4. 我从未使用过他人的代码，不管是原封不动地复制，还是经过了某些等价转换。 我未曾也不会向他人（含此后各届同学）复制或公开我的实验代码，我有义务妥善保管好它们。 我提交至本实验的评测系统的代码，均无意于破坏或妨碍任何计算机系统的正常运转。 我清楚地知道，以上情况均为本课程纪律所禁止，若违反，对应的实验成绩将按“-100”分计。

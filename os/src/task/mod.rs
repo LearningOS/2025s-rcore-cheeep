@@ -15,6 +15,7 @@ mod switch;
 mod task;
 
 use crate::config::MAX_APP_NUM;
+use crate::config::MAX_SYSCALL_NUM;
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
 use lazy_static::*;
@@ -23,8 +24,8 @@ pub use task::{TaskControlBlock, TaskStatus};
 
 pub use context::TaskContext;
 
-/// 系统调用号的最大值
-const MX_SYSCALL: usize = 474;
+
+
 
 /// The task manager, where all the tasks are managed.
 ///
@@ -40,10 +41,8 @@ pub struct TaskManager {
     num_app: usize,
     /// use inner value to get mutable access
     inner: UPSafeCell<TaskManagerInner>,
-    /// 记录用户程序各系统调用的调用次数
-    /// 直接写pub syscall_counter: [[usize; MX_SYSCALL]; MAX_APP_NUM]不行
-    /// 得仿照inner用UPSafeCell包一层，不然由于TASK_MANAGER是全局静态变量，rust里全局静态变量不可变
-    syscall_counter_cell: UPSafeCell<[[usize; MX_SYSCALL]; MAX_APP_NUM]>,
+     /// 记录每个任务每个系统调用的调用次数（用 UPSafeCell 包裹以支持全局静态可变）
+    syscall_count: UPSafeCell<[[usize; MAX_SYSCALL_NUM]; MAX_APP_NUM]>,
 }
 
 /// Inner of Task Manager
@@ -74,8 +73,8 @@ lazy_static! {
                     current_task: 0,
                 })
             },
-            syscall_counter_cell: unsafe {
-                UPSafeCell::new([[0; MX_SYSCALL]; MAX_APP_NUM])
+            syscall_count: unsafe {
+                UPSafeCell::new([[0; MAX_SYSCALL_NUM]; MAX_APP_NUM])
             }
         }
     };
@@ -146,19 +145,19 @@ impl TaskManager {
         }
     }
 
-    /// 把当前任务的syscall_id的系统调用次数记录增加1
+    /// 系统调用次数记录增加1
     pub fn increase_sys_call(&self, syscall_id: usize) {
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        let mut syscall_counter = self.syscall_counter_cell.exclusive_access();
+        let mut syscall_counter = self.syscall_count.exclusive_access();
         syscall_counter[current][syscall_id] += 1;
     }
 
-    /// 获取当前任务的syscall_id的系统调用次数
-    pub fn get_syscall_count(&self, syscall_id: usize) -> usize {
+    /// 查询当前任务某系统调用次数
+    pub fn get_sys_call_times(&self, syscall_id: usize) -> usize {
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        let syscall_counter = self.syscall_counter_cell.exclusive_access();
+        let syscall_counter = self.syscall_count.exclusive_access();
         syscall_counter[current][syscall_id]
     }
 }
@@ -203,5 +202,5 @@ pub fn add_syscall_count(syscall_id: usize) {
 
 /// 调TASK_MANAGER.get_syscall_count()
 pub fn get_syscall_count(syscall_id: usize) -> usize {
-    TASK_MANAGER.get_syscall_count(syscall_id)
+    TASK_MANAGER.get_sys_call_times(syscall_id)
 }
