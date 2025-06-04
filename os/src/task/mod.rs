@@ -147,7 +147,7 @@ impl TaskManager {
     }
 
     /// 把当前任务的syscall_id的系统调用次数记录增加1
-    pub fn inc_syscall_count(&self, syscall_id: usize) {
+    pub fn increase_sys_call(&self, syscall_id: usize) {
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
         let mut syscall_counter = self.syscall_counter_cell.exclusive_access();
@@ -198,7 +198,7 @@ pub fn exit_current_and_run_next() {
 
 /// 调TASK_MANAGER.inc_syscall_count()
 pub fn add_syscall_count(syscall_id: usize) {
-    TASK_MANAGER.inc_syscall_count(syscall_id);
+    TASK_MANAGER.increase_sys_call(syscall_id);
 }
 
 /// 调TASK_MANAGER.get_syscall_count()
