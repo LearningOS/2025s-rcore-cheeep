@@ -25,46 +25,29 @@ jobs:
           publish_dir: ./os/target/riscv64gc-unknown-none-elf/doc
           destination_dir: ${{ github.ref_name }}
   basic-test:
-  runs-on: ubuntu-latest
-  outputs:
-    points: ${{ steps.end.outputs.points}}
-  container:
-    image: duskmoon/dev-env:rcore-ci
-  steps:
-    - name: Remove Cargo proxy config
-      run: |
-        unset RUSTUP_DIST_SERVER
-        unset RUSTUP_UPDATE_ROOT
-        unset CARGO_HTTP_MULTIPLEXING
-        # 删除或重置全局配置
-        rm ${CARGO_HOME}/config.toml || true
-        rm -rf rm ${CARGO_HOME}/registry/* || true
-    - uses: actions/checkout@v4
-    # 添加以下步骤安装更新的 Rust 工具链
-    - name: Install Rust toolchain
-      run: |
-        rustup toolchain install nightly-2023-12-01
-        rustup default nightly-2023-12-01
-        rustup component add rust-src --toolchain nightly-2023-12-01
-        rustup target add riscv64gc-unknown-none-elf --toolchain nightly-2023-12-01
-    # 预先安装 cargo-binutils 并使用 --locked 参数
-    - name: Install cargo-binutils
-      run: |
-        cargo install cargo-binutils --version 0.3.5 --locked || true
-    - name: Run tests
-      run: |
-        qemu-system-riscv64 --version
-        git config --global --add safe.directory /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
-        git clone https://github.com/LearningOS/rCore-Tutorial-Checker-2025S.git ci-user
-        git clone https://github.com/LearningOS/rCore-Tutorial-Test-2025S.git ci-user/user
-        ID=`git rev-parse --abbrev-ref HEAD | grep -oP 'ch\K[0-9]'`
-        cd ci-user && make test CHAPTER=$ID passwd=${{ secrets.BASE_TEST_TOKEN }} > ../output.txt
-        cat ../output.txt
-    - name: end
-      id: end
-      run: |
-        cat output.txt | grep -a "Test passed" | grep -oP "\d{1,}/\d{1,}" | xargs -i echo "points={}"
-        cat output.txt | grep -a "Test passed" | grep -oP "\d{1,}/\d{1,}" | xargs -i echo "points={}" >> $GITHUB_OUTPUT
+    runs-on: ubuntu-latest
+    outputs:
+      points: ${{ steps.end.outputs.points}}
+    container:
+      image: duskmoon/dev-env:rcore-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: |
+          qemu-system-riscv64 --version
+          rustup target add riscv64gc-unknown-none-elf
+          git config --global --add safe.directory /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+          git clone https://github.com/LearningOS/rCore-Tutorial-Checker-2025S.git ci-user
+          git clone https://github.com/LearningOS/rCore-Tutorial-Test-2025S.git ci-user/user
+          ID=`git rev-parse --abbrev-ref HEAD | grep -oP 'ch\K[0-9]'`
+          # cd ci-user && make test CHAPTER=$ID passwd=${{ secrets.BASE_TEST_TOKEN }}
+          cd ci-user && make test CHAPTER=$ID passwd=${{ secrets.BASE_TEST_TOKEN }} > ../output.txt
+          cat ../output.txt
+      - name: end
+        id: end
+        run: |
+          cat output.txt | grep -a "Test passed" | grep -oP "\d{1,}/\d{1,}" | xargs -i echo "points={}"
+          cat output.txt | grep -a "Test passed" | grep -oP "\d{1,}/\d{1,}" | xargs -i echo "points={}" >> $GITHUB_OUTPUT
   deploy:
     if: github.repository != 'LearningOS/rCore-Camp-Code-2025S'
     name: Deploy to pages
