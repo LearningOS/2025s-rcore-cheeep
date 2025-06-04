@@ -202,6 +202,6 @@ pub fn add_syscall_count(syscall_id: usize) {
 }
 
 /// 调TASK_MANAGER.get_syscall_count()
-pub fn get_syscall_count(syscall_id: usize) {
-    TASK_MANAGER.get_syscall_count(syscall_id);
+pub fn get_syscall_count(syscall_id: usize) -> usize {
+    TASK_MANAGER.get_syscall_count(syscall_id)
 }
